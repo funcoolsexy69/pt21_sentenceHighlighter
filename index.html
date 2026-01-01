@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="mul">
+<head>
+<meta charset="UTF-8">
+<title>Sentence Highlighter</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; }
+  textarea { width: 100%; height: 200px; font-size: 18px; }
+  #output { margin-top: 30px; font-size: 20px; line-height: 1.6; white-space: pre-wrap; }
+  #output span { 
+    cursor: pointer; 
+    margin-right: 0.3em; 
+    transition: background-color 0.2s;
+    display: inline-block;
+    padding: 0.1em 0.3em;
+    border-radius: 0.3em;
+  }
+  #colorPicker { display: none; }
+</style>
+</head>
+<body>
+
+<h1>텍스트 입력 → 문장 클릭으로 형광펜 하이라이트</h1>
+<p>클릭 → 형광펜 (기본 노랑)<br>다시 클릭 → 색상 변경<br>더블 클릭 → 제거</p>
+<textarea id="input" placeholder="여기에 텍스트를 입력하세요. 문장은 마침표(.)로 끝내세요.&#10;예: 사랑해. 나도 사랑해."></textarea>
+
+<div id="output"></div>
+<input type="color" id="colorPicker">
+
+<script>
+const colorPicker = document.getElementById('colorPicker');
+
+function hexToRgb(hex) {
+  hex = hex.replace('#', '');
+  return {
+    r: parseInt(hex.substr(0,2), 16),
+    g: parseInt(hex.substr(2,2), 16),
+    b: parseInt(hex.substr(4,2), 16)
+  };
+}
+
+function openColorPicker(callback, defaultHex = '#FFFF00') {
+  colorPicker.value = defaultHex;
+  colorPicker.onchange = function(e) {
+    callback(e.target.value);
+    colorPicker.onchange = null; // 리셋
+  };
+  colorPicker.click();
+}
+
+function process() {
+  const text = document.getElementById('input').value;
+  const output = document.getElementById('output');
+  output.innerHTML = '';
+
+  if (!text.trim()) {
+    output.textContent = '텍스트를 입력하세요.';
+    return;
+  }
+
+  const parts = text.split('.');
+  const sentences = parts
+    .map(part => part.trim())
+    .filter(part => part !== '')
+    .map((part, index, array) => part + (index < array.length - 1 ? '.' : ''));
+
+  sentences.forEach(sent => {
+    const span = document.createElement('span');
+    span.textContent = sent + ' ';
+
+    span.onclick = function(e) {
+      e.stopPropagation();
+
+      const currentBg = getComputedStyle(this).backgroundColor;
+      const isTransparent = currentBg === 'rgba(0, 0, 0, 0)' || currentBg === 'transparent';
+
+      if (isTransparent) {
+        openColorPicker(color => {
+          const {r,g,b} = hexToRgb(color);
+          this.style.backgroundColor = `rgba(${r},${g},${b},0.4)`;
+        }, '#FFFF00');
+      } else {
+        const match = currentBg.match(/\d+/g);
+        if (match && match.length >= 3) {
+          const [r,g,b] = match.slice(0,3).map(Number);
+          const currentHex = '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+          openColorPicker(color => {
+            const {r:newR, g:newG, b:newB} = hexToRgb(color);
+            this.style.backgroundColor = `rgba(${newR},${newG},${newB},0.4)`;
+          }, currentHex.toUpperCase());
+        }
+      }
+    };
+
+    span.ondblclick = function(e) {
+      e.preventDefault();
+      this.style.backgroundColor = '';
+    };
+
+    output.appendChild(span);
+  });
+}
+
+document.getElementById('input').addEventListener('input', process);
+process();
+</script>
+
+</body>
+</html>
